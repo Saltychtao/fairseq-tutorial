@@ -95,8 +95,4 @@ fairseq-interactive $databin \
 执行这个命令会进入一个交互式的界面，此时当输入一句待翻译的句子时，程序就能够调用训练好的模型来对其进行翻译，并输出结果。
 
 下图是一个示例:
-![](./figs/interactive.png)
-
-
-## 基本概念
-Fairseq基于pytorch开发,因此其训练一个神经网络模型的所需要的元素与普通的代码库类似。 回忆一下，在实现一个神经网络算法时，我们需要定义如下几个组件: (1) 数据 （2）模型 （3）优化目标 （4）优化器 。 在Fairseq中，每一个组件都由一个对应的类封装起来，分别是 Dataset, Model, Criterion, 以及 Optimizer。 除此之外，Fairseq中还定义了一个叫做任务(Task)的概念，来实现上述四个组件之间的交互。一般而言，在对Fairseq进行拓展时，只需要继承上述几个类，并自定义新的行为即可。
+![./figs/interactive.png](./figs/interactive.png)
