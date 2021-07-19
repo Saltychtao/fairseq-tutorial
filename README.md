@@ -60,11 +60,11 @@ fairseq-train \
 与上面类似，同学们可以通过执行`CUDA_VISIBLE_DEVICES=x bash train_transformer.sh`运行。
 
 ### 测试训练好的模型
-在上一个小节的训练完成后，我们就可以尝试使用训练得到的模型来进行翻译（当然，由于本教程中用来训练模型的平行语料规模相对较小，因此所获得模型的翻译性能可能并不会特别好）。在Fairseq中，进行翻译有两种方式，一种是直接使用`fairseq-generate`命令来翻译之前使用`fairseq-preprocess`命令处理好的数据集，示例的命令如下，可通过运行`CUDA_VISIBLE_DEVICES=x bash generate.sh`来执行:
+在上一个小节的训练完成后，我们就可以尝试使用训练得到的模型来进行翻译（当然，由于本教程中用来训练模型的平行语料规模相对较小，因此所获得模型的翻译性能可能并不会特别好）。在Fairseq中，进行翻译有两种方式，一种是直接使用`fairseq-generate`命令来翻译之前使用`fairseq-preprocess`命令处理好的数据集，示例的命令如下，可通过运行`CUDA_VISIBLE_DEVICES=x bash generate.sh ./data/data-bin ./savedir/lstm`来执行:
 
 ``` shell
-databin=$1
-checkpoint_dir=$2
+databin=./data/data-bin
+checkpoint_dir=./savedir/transformer
 fairseq-generate $databin \
                  --path $checkpoint_dir/checkpoint_best.pt \
                  --batch-size 128 \
