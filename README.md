@@ -2,7 +2,7 @@
 Fairseq是Facebook出品的、专为序列生成服务的深度学习库。Fairseq中实现了许多先进的序列生成算法，并且代码整洁，封装程度高，拓展性强，故受到了很多研究人员的欢迎。 本篇指南旨在对Fairseq库做一个简单的介绍，以帮助同学们快速熟悉这个强大的代码库，来方便之后进行自然语言生成方向的研究、实践。
 
 ## 简单使用
-在深入了解Fairseq的代码结构之前，让我们先通过一个简单的示例，来熟悉一下Fairseq的使用流程，对应的数据和代码可以见附带的压缩包。
+在深入了解Fairseq的代码结构之前，让我们先通过一个简单的示例，来熟悉一下Fairseq的使用流程，对应的数据和代码可以见附带的压缩包。注意，本教程使用的Fairseq版本为0.10。
 
 假设我们现在有一个中英翻译的数据集（见 data/chinese-english），数据集中包含了100000句对应的中英句对以供训练，并分别包含1000句中英句对以供验证和测试。
 
@@ -69,6 +69,7 @@ fairseq-generate $databin \
                  --path $checkpoint_dir/checkpoint_best.pt \
                  --batch-size 128 \
                  --beam 5  \
+                 -s zh -t en\
                  --results-path $checkpoint_dir/beam-5 \
                  --scoring sacrebleu \
                  --gen-subset test \
@@ -88,6 +89,7 @@ result_path=$3
 fairseq-interactive $databin \
                  --path $checkpoint_dir/checkpoint_best.pt \
                  --batch-size 128 \
+                 -s zh -t en\
                  --beam $5  \
                  --gen-subset $4 \
                  --remove-bpe --tokenizer moses
