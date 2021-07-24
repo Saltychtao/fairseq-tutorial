@@ -10,7 +10,7 @@ Fairseq是Facebook出品的、专为序列生成服务的深度学习库。Fairs
 使用Fairseq的第一步是将原始数据预处理成二进制文件存储下来，以方便后续处理的方便。 为此，我们首先需要将原始的句对组织成 xxx.src, xxx.tgt的形式，xxx.src中存储了平行句对的源端句子，xxx.tgt中存储了平行句对的目标端句子，两个文件的每一行是一一对应的(data目录下已经进行了相应的处理)。然后，就可以使用以下指令
 
 ``` shell
-fairseq-preprocess --source-lang zh --target-lang en --trainpref ./data/chiense-english/train --validpref ./data/chinese-english/valid --testpref ./data/chinese-english/test --destdir ./data/data-bin --workers 20
+fairseq-preprocess --source-lang zh --target-lang en --trainpref ./data/chinese-english/train --validpref ./data/chinese-english/valid --testpref ./data/chinese-english/test --destdir ./data/data-bin --workers 20
 ```
 来处理数据，并将结果存放在 `./data/data-bin`下。
 
@@ -98,6 +98,42 @@ fairseq-interactive $databin \
 
 下图是一个示例:
 ![./figs/interactive.png](./figs/interactive.png)
+
+### 在目标语料上对模型进行进一步训练
+在领域自适应的场景下，模型在源领域的语料上训练之后，还需要进一步finetune到目标领域。为了达到这样的目的，我们首先需要将目标领域的数据处理成`data-bin`的形式以供fairseq使用。需要注意的是，此时我们必须使用从源领域的语料上统计出的词典来将目标领域的词映射成对应的id，才可以在后续复用使用此词典的模型。 以下是对目标领域数据做预处理的代码,你需要在使用时将`/path/to/src-data-bin`替换成预处理好的源领域数据集的地址,将`tgt-data-path`替换为目标领域原始数据集的地址(以下代码存放在了`preprocess_target.sh`中):
+``` shell
+src-data-bin=/path/to/src-data-bin
+tgt-data-path=/path/to/tgt-data
+srclang=de
+tgtlang=en
+fairseq-preprocess --source-lang de --target-lang en --trainpref $tgt-data-path/train --validpref .$tgt-data-path/valid --testpref $tgt-data-path/test --destdir ./data/tgt-data-bin --workers 20 --srcdict $src-data-bin/dict.de.txt --tgtdict $tgt-data-bin/dict.en.txt
+```
+
+在处理好目标领域数据集之后，我们就可以对源领域的模型进行finetune（当然，在此之前，首先要在源领域的语料上训练获得一个翻译模型）, 使用脚本`finetune.sh`:
+
+``` shell
+databin=./data/tgt-data-bin
+savedir=./savedir/finetuned-lstm
+src_checkpoint_path=/path/to/src_checkpoint_path
+fairseq-train \
+    $databin \
+    --arch lstm\
+    --optimizer adam --adam-betas '(0.9, 0.98)' --finetune-from-model $src_checkpoint_path\
+    --lr 5e-5 \
+    --encoder-layers 1 --encoder-bidirectional --decoder-layers 1\
+    --dropout 0.1 --weight-decay 0.0001 \
+    --criterion label_smoothed_cross_entropy --label-smoothing 0.1\
+    --max-tokens 4000\
+    --eval-bleu \
+    --eval-bleu-args '{"beam": 1, "max_len_a": 1.2, "max_len_b": 20}' \
+    --eval-bleu-detok moses --eval-bleu-print-samples\
+    --best-checkpoint-metric bleu --maximize-best-checkpoint-metric\
+    --no-save-optimizer-state  --no-epoch-checkpoints --patience 10 --save-dir $savedir -s de -t en\
+```
+
+本脚本与上面`train_lstm.sh`的脚本相比，主要有两点差别:
+1. 多了 `--finetune-from-model` 的参数。这个参数指定了预训练的源领域模型的地址，你也需要将脚本中`/path/to/src_checkpoint_path`替换成对应的地址(这个地址一般以`.pt`结尾，例如`checkpoint_best.pt`)
+2. `--lr`从 1e-3变成了5e-5, 这是因为我们只希望在原来的模型基础上进行微调，这样能防止原来的知识的丢失。
 
 
 ## 进阶使用
@@ -244,7 +280,7 @@ class TranslationTask(FairseqTask):
 
 ```
 
-## Dataset
+### Dataset
 在上述`Task`的`train_step`与`valid_step`方法中，都有一个形参叫做`sample`，这是一个词典，其中包含了一整个`batch`的数据，并大多是以tensor形式存在，（如果是序列，则已做好padding）。如果我们想要在训练过程中用到更多数据，那就需要自定义这个`sample`中的数据。这可以通过自定义一个自己的`Dataset`类。当然，学习的最快方式也是去看一下fairseq内的`Dataset`实现。
 
 接下来，我们就以翻译任务中使用到的`LanguagePairdataset`为例来学习其用法（这个类也在上面`translation.py`中出现了）。
@@ -334,7 +370,7 @@ class LanguagePairDataset(FairseqDataset):
         return res
 ```
 
-## Criterion
+### Criterion
 `Criterion`类中定义了给定一个batch的数据以及一个神经网络模型Model,我们怎么样计算对应的任务损失。下面我们就一起通过`CrossEntropyCriterion`这个类的实现，来学习如何自定义自己的损失函数。
 
 ``` python
@@ -408,5 +444,5 @@ class CrossEntropyCriterion(FairseqCriterion):
 
 ```
 
-## Model
+### Model
 由于`Model`中实现的细节太多，所以就不在这边多做介绍，需要知道的是，Model与其他模块交互的方法是`forward`方法即可，关于其他细节各位可以自行查看`fairseq/model/transformer.py`。
