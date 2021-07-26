@@ -102,8 +102,8 @@ fairseq-interactive $databin \
 ### 在目标语料上对模型进行进一步训练
 在领域自适应的场景下，模型在源领域的语料上训练之后，还需要进一步finetune到目标领域。为了达到这样的目的，我们首先需要将目标领域的数据处理成`data-bin`的形式以供fairseq使用。需要注意的是，此时我们必须使用从源领域的语料上统计出的词典来将目标领域的词映射成对应的id，才可以在后续复用使用此词典的模型。 以下是对目标领域数据做预处理的代码,你需要在使用时将`/path/to/src-data-bin`替换成预处理好的源领域数据集的地址,将`tgt-data-path`替换为目标领域原始数据集的地址(以下代码存放在了`preprocess_target.sh`中):
 ``` shell
-src-data-bin=/path/to/src-data-bin
-tgt-data-path=/path/to/tgt-data
+src_data_bin=/path/to/src-data-bin
+tgt_data_path=/path/to/tgt-data
 srclang=de
 tgtlang=en
 fairseq-preprocess --source-lang de --target-lang en --trainpref $tgt-data-path/train --validpref .$tgt-data-path/valid --testpref $tgt-data-path/test --destdir ./data/tgt-data-bin --workers 20 --srcdict $src-data-bin/dict.de.txt --tgtdict $tgt-data-bin/dict.en.txt
