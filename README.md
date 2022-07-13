@@ -108,7 +108,7 @@ fairseq-interactive $databin \
 
 
 ## 进阶使用
-Fairseq基于pytorch开发,因此其训练一个神经网络模型的所需要的元素与普通的代码库类似。 回忆一下，在实现一个神经网络算法时，我们需要定义如下几个组件: (1) 数据 （2）模型 （3）优化目标 （4）优化器 。 在Fairseq中，每一个组件都由一个对应的类封装起来，分别是 `Dataset`, `Model`, `Criterion`, 以及 `Optimizer`。 除此之外，Fairseq中还定义了一个叫做`Task`的概念，来实现上述四个组件之间的交互。一般而言，在对Fairseq进行拓展时，只需要继承上述几个类，并自定义新的行为即可。 目录 `src`中给了一份拓展fairseq来实现自定义功能的代码，接下来我们会跟着这份代码来一起熟悉Fairseq的使用。
+Fairseq基于pytorch开发,因此其训练一个神经网络模型的所需要的元素与普通的代码库类似。 回忆一下，在实现一个神经网络算法时，我们需要定义如下几个组件: (1) 数据 （2）模型 （3）优化目标 （4）优化器 。 在Fairseq中，每一个组件都由一个对应的类封装起来，分别是 `Dataset`, `Model`, `Criterion`, 以及 `Optimizer`。 除此之外，Fairseq中还定义了一个叫做`Task`的概念，来实现上述四个组件之间的交互。一般而言，在对Fairseq进行拓展时，只需要继承上述几个类，并自定义新的行为即可。
 
 ### Task
 `Task`类是fairseq中的核心概念，其中定义了若干个方法，以便fairseq在训练和测试的时候调用。学习这个类的最快的方式是看`TranslationTask`这个类（在Fairseq源码中）。以下也粘贴了这部分代码(不重要的方法已省略),并给了注释:
@@ -191,7 +191,7 @@ class TranslationTask(FairseqTask):
         model.set_num_updates(update_num)
         # 真正计算损失的过程在 criterion　中进行
         loss, sample_size, logging_output, likelihood = criterion(model, sample)
-        # 梯度回传，如果想要自定义一些梯度的操作，在此处进行
+        # 梯度回传，如果想要自定义一些针对梯度的操作，在此处进行
         optimizer.backward(loss)
         # 注意，参数并不在此处更新，而是在外部Trainer类中进行更新，具体见fairseq/trainer.py
 
@@ -351,7 +351,8 @@ class CrossEntropyCriterion(FairseqCriterion):
         super().__init__(task)
         self.sentence_avg = sentence_avg
 
-    # 这个类也是一个Pytorch的Module,因此需要实现forward方法，这个方法在Task的 train_step中被调用，来计算损#    # 失，可以看到，其形参分别为model和sample.
+    # 这个类也是一个Pytorch的Module,因此需要实现forward方法，这个方法在Task的 train_step中被调用，来计算损失，
+    # 可以看到，其形参分别为model和sample.
     def forward(self, model, sample, reduce=True):
         """Compute the loss for the given sample.
 
