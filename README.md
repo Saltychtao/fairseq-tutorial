@@ -2,24 +2,31 @@
 Fairseq是Facebook出品的、专为序列生成服务的深度学习库。Fairseq中实现了许多先进的序列生成算法，并且代码整洁，封装程度高，拓展性强，故受到了很多研究人员的欢迎。 本篇指南旨在对Fairseq库做一个简单的介绍，以帮助同学们快速熟悉这个强大的代码库，来方便之后进行自然语言生成方向的研究、实践。
 
 ## 简单使用
-在深入了解Fairseq的代码结构之前，让我们先通过一个简单的示例，来熟悉一下Fairseq的使用流程，对应的数据和代码可以见附带的压缩包。注意，本教程使用的Fairseq版本为0.10。
+在深入了解Fairseq的代码结构之前，让我们先通过一个简单的示例，来熟悉一下Fairseq的使用流程，对应的数据和代码可以见附带的压缩包。注意，本教程使用的Fairseq版本为0.10.1。
 
-假设我们现在有一个中英翻译的数据集（见 data/chinese-english），数据集中包含了100000句对应的中英句对以供训练，并分别包含1000句中英句对以供验证和测试。
+假设我们现在有一个中英翻译的数据集（可通过下载夏令营提供的 NIST-1.34m.zip 获得，数据集中包含了约1.34 M句对应的中英句对以供训练，并额外提供了验证集和测试集),其地址为 data/nist_1.34m。
 
 ### 数据预处理
-使用Fairseq的第一步是将原始数据预处理成二进制文件存储下来，以方便后续处理的方便。 为此，我们首先需要将原始的句对组织成 xxx.src, xxx.tgt的形式，xxx.src中存储了平行句对的源端句子，xxx.tgt中存储了平行句对的目标端句子，两个文件的每一行是一一对应的(data目录下已经进行了相应的处理)。然后，就可以使用以下指令
+使用Fairseq的第一步是将原始数据预处理成二进制文件存储下来，以方便后续处理的方便。 为此，我们首先需要将原始的句对组织成 xxx.src, xxx.tgt的形式，xxx.src中存储了平行句对的源端句子，xxx.tgt中存储了平行句对的目标端句子，两个文件的每一行是一一对应的。我们给定的数据集中已处理成对应格式，但由于数据集太大，为了节省时间，我们只选取其中的子集（约20万句）作演示:
 
 ``` shell
-fairseq-preprocess --source-lang zh --target-lang en --trainpref ./data/chinese-english/train --validpref ./data/chinese-english/valid --testpref ./data/chinese-english/test --destdir ./data/data-bin --workers 20
+head -200000 data/nist_1.34m/train.en > data/nist_1.34m/train.200k.en
+head -200000 data/nist_1.34m/train.zh > data/nist_1.34m/train.200k.zh
 ```
-来处理数据，并将结果存放在 `./data/data-bin`下。
+
+然后，就可以使用以下指令
+
+``` shell
+fairseq-preprocess --source-lang zh --target-lang en --trainpref ./data/nist_1.34m/train.200k --validpref ./data/nist_1.34m/valid --testpref ./data/nist_1.34m/test --destdir ./data/nist_200k-data-bin --workers 40
+```
+来处理数据，并将结果存放在 `./data/nist_200k-data-bin`下。
 
 ### 训练模型
-将数据处理完毕之后，我们就可以使用Fairseq所实现的序列到序列算法来训练一个中文到英文的机器翻译模型。训练一个基于LSTM的Seq2Seq模型的命令已经写在了`train_lstm.sh`中，可以通过运行`CUDA_VISIBLE_DEVICES=x bash train_lstm.sh`执行。 让我们看一下`train_lstm.sh`的内容：
+将数据处理完毕之后，我们就可以使用Fairseq所实现的序列到序列算法来训练一个中文到英文的机器翻译模型。训练一个基于LSTM的Seq2Seq模型的命令已经写在了`train_lstm.sh`中，可以通过运行`CUDA_VISIBLE_DEVICES=x bash train_lstm.sh ./data/nist_200k-data-bin ./savedir/nist_200k/lstm`执行。 让我们看一下`train_lstm.sh`的内容：
 
 ``` shell
-databin=./data/data-bin
-savedir=./savedir/lstm
+databin=$1
+savedir=$2
 fairseq-train \
     $databin \
     --arch lstm\
@@ -41,8 +48,8 @@ fairseq-train \
 同理，训练一个基于Transformer的Seq2Seq模型的命令如下:
 
 ``` shell
-databin=./data/data-bin
-savedir=./savedir/transformer
+databin=$1
+savedir=$2
 fairseq-train \
     $databin \
     --arch transformer_iwslt_de_en --share-decoder-input-output-embed \
@@ -57,14 +64,14 @@ fairseq-train \
     --best-checkpoint-metric bleu --maximize-best-checkpoint-metric\
     --no-save-optimizer-state --patience 10 --save-dir $savedir -s src -t tgt \
 ```
-与上面类似，同学们可以通过执行`CUDA_VISIBLE_DEVICES=x bash train_transformer.sh`运行。
+与上面类似，同学们可以通过执行`CUDA_VISIBLE_DEVICES=x bash train_transformer.sh ./data/nist_200k-data-bin ./savedir/nist_200k/transformer`运行。
 
 ### 测试训练好的模型
-在上一个小节的训练完成后，我们就可以尝试使用训练得到的模型来进行翻译（当然，由于本教程中用来训练模型的平行语料规模相对较小，因此所获得模型的翻译性能可能并不会特别好）。在Fairseq中，进行翻译有两种方式，一种是直接使用`fairseq-generate`命令来翻译之前使用`fairseq-preprocess`命令处理好的数据集，示例的命令如下，可通过运行`CUDA_VISIBLE_DEVICES=x bash generate.sh ./data/data-bin ./savedir/lstm`来执行:
+在上一个小节的训练完成后，我们就可以尝试使用训练得到的模型来进行翻译（当然，由于本教程中用来训练模型的平行语料规模相对较小，因此所获得模型的翻译性能可能并不会特别好）。在Fairseq中，进行翻译有两种方式，一种是直接使用`fairseq-generate`命令来翻译之前使用`fairseq-preprocess`命令处理好的数据集，示例的命令如下，可通过运行`CUDA_VISIBLE_DEVICES=x bash generate.sh ./data/nist_200k-data-bin ./savedir/nist_200k/lstm`来执行:
 
 ``` shell
-databin=./data/data-bin
-checkpoint_dir=./savedir/transformer
+databin=$1
+checkpoint_dir=$2
 fairseq-generate $databin \
                  --path $checkpoint_dir/checkpoint_best.pt \
                  --batch-size 128 \
@@ -80,7 +87,7 @@ tail -1 $checkpoint_dir/beam-5/generate-test.txt
 ```
 上述命令表示我们希望使用`$checkpoint_dir`这个目录下训练得到的`checkpoint_best.pt`这个模型来对`$databin`中的`test`子集进行翻译，翻译时使用的`beam size`为5，`batch-size`为128。 翻译好的结果被存储在了`$checkpoint_dir/beam-5/generate-test.txt`这个文件中。
 
-当然，很多时候我们在处理数据的时候并不知道希望翻译的句子，所以需要在训练完模型之后，给定一个句子时，对其进行实时地翻译，这可以通过以下命令实现，可通过运行`CUDA_VISIBLE_DEVICES=x bash interactive.sh`来执行:
+当然，很多时候我们在处理数据的时候并不会预先知道希望翻译的句子，所以需要在训练完模型之后，给定一个句子时，对其进行实时地翻译，这可以通过以下命令实现，可通过运行`CUDA_VISIBLE_DEVICES=x bash interactive.sh`来执行:
 
 ``` shell
 databin=$1
@@ -98,42 +105,6 @@ fairseq-interactive $databin \
 
 下图是一个示例:
 ![./figs/interactive.png](./figs/interactive.png)
-
-### 在目标语料上对模型进行进一步训练
-在领域自适应的场景下，模型在源领域的语料上训练之后，还需要进一步finetune到目标领域。为了达到这样的目的，我们首先需要将目标领域的数据处理成`data-bin`的形式以供fairseq使用。需要注意的是，此时我们必须使用从源领域的语料上统计出的词典来将目标领域的词映射成对应的id，才可以在后续复用使用此词典的模型。 以下是对目标领域数据做预处理的代码,你需要在使用时将`/path/to/src-data-bin`替换成预处理好的源领域数据集的地址,将`tgt-data-path`替换为目标领域原始数据集的地址(以下代码存放在了`preprocess_target.sh`中):
-``` shell
-src_data_bin=/path/to/src-data-bin
-tgt_data_path=/path/to/tgt-data
-srclang=de
-tgtlang=en
-fairseq-preprocess --source-lang de --target-lang en --trainpref $tgt-data-path/train --validpref .$tgt-data-path/valid --testpref $tgt-data-path/test --destdir ./data/tgt-data-bin --workers 20 --srcdict $src-data-bin/dict.de.txt --tgtdict $tgt-data-bin/dict.en.txt
-```
-
-在处理好目标领域数据集之后，我们就可以对源领域的模型进行finetune（当然，在此之前，首先要在源领域的语料上训练获得一个翻译模型）, 使用脚本`finetune.sh`:
-
-``` shell
-databin=./data/tgt-data-bin
-savedir=./savedir/finetuned-lstm
-src_checkpoint_path=/path/to/src_checkpoint_path
-fairseq-train \
-    $databin \
-    --arch lstm\
-    --optimizer adam --adam-betas '(0.9, 0.98)' --finetune-from-model $src_checkpoint_path\
-    --lr 5e-5 \
-    --encoder-layers 1 --encoder-bidirectional --decoder-layers 1\
-    --dropout 0.1 --weight-decay 0.0001 \
-    --criterion label_smoothed_cross_entropy --label-smoothing 0.1\
-    --max-tokens 4000\
-    --eval-bleu \
-    --eval-bleu-args '{"beam": 1, "max_len_a": 1.2, "max_len_b": 20}' \
-    --eval-bleu-detok moses --eval-bleu-print-samples\
-    --best-checkpoint-metric bleu --maximize-best-checkpoint-metric\
-    --no-save-optimizer-state  --no-epoch-checkpoints --patience 10 --save-dir $savedir -s de -t en\
-```
-
-本脚本与上面`train_lstm.sh`的脚本相比，主要有两点差别:
-1. 多了 `--finetune-from-model` 的参数。这个参数指定了预训练的源领域模型的地址，你也需要将脚本中`/path/to/src_checkpoint_path`替换成对应的地址(这个地址一般以`.pt`结尾，例如`checkpoint_best.pt`)
-2. `--lr`从 1e-3变成了5e-5, 这是因为我们只希望在原来的模型基础上进行微调，这样能防止原来的知识的丢失。
 
 
 ## 进阶使用

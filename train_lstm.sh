@@ -1,5 +1,5 @@
-databin=./data/data-bin
-savedir=./savedir/lstm
+databin=$1
+savedir=$2
 fairseq-train \
     $databin \
     --arch lstm\
